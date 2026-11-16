@@ -56,10 +56,13 @@ while true; do
     fi
     chmod +x "$APP"
 
+    # No VRCX is running at this point, so any lock file is stale.
+    rm -f "$XDG_CACHE_HOME"/VRCX/ElectronUserData/Singleton*
+
     START_SIG=$(signature)
 
     "$APP" --no-sandbox --disable-gpu --disable-dev-shm-usage \
-        --no-install --no-desktop "--config=$DATA" &
+        --no-install --no-desktop "--config=$DATA" --enable-logging=stderr &
     APP_PID=$!
 
     # Watch for an update downloaded by VRCX's own updater and restart onto it.
@@ -76,6 +79,8 @@ while true; do
     WATCH_PID=$!
 
     wait "$APP_PID"
+    rc=$?
+    echo "VRCX process ended with exit code $rc"
     # VRCX can relaunch itself (e.g. its own "Restart" button); wait while it runs.
     while pgrep -f "$PROC_RE" >/dev/null; do sleep 5; done
     kill "$WATCH_PID" 2>/dev/null
