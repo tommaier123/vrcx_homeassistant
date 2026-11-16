@@ -9,6 +9,8 @@ RUN add-pkg \
         libnss3 libgtk-3-0 libgbm1 libasound2 libxss1 libxtst6 libdrm2 \
         libxkbcommon0 libatk-bridge2.0-0 libcups2 libsecret-1-0 libnotify4 \
         libicu72 libssl3 xdg-utils \
+        libx11-xcb1 libxcb-dri3-0 libxcb-glx0 libxcb-present0 libxcb-sync1 libxshmfence1 \
+        libegl1 libgl1 libgles2 libdbusmenu-glib4 libpci3 \
         fonts-noto-core fonts-noto-color-emoji fonts-wqy-zenhei
 
 RUN set-cont-env APP_NAME "VRCX" && \
