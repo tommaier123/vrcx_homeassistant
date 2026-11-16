@@ -4,23 +4,22 @@
     #noVNC_control_bar_anchor { display: none !important; }
 </style>
 <script type="module">
-    // Phones: resize the remote screen to the phone's shape and scale it to
-    // fill the screen. Portrait keeps 1280 px width (full height), landscape
-    // uses 1.75x the phone's real size. Desktop browsers are left as they are.
+    // Phones in portrait: resize the remote screen to the phone's shape at
+    // 640 px width (2x VRCX's desktop zoom) and scale it to fill the screen.
+    // In landscape the screen is left unchanged. Desktop browsers are untouched.
     import UI from "./app/ui.js?v=UNIQUE_VERSION";
 
-    const PORTRAIT_WIDTH = 1280;
-    const LANDSCAPE_FACTOR = 1.75;
-
-    const target = ({ w, h }) => w <= h
-        ? { w: PORTRAIT_WIDTH, h: Math.round(PORTRAIT_WIDTH * h / w) }
-        : { w: Math.round(w * LANDSCAPE_FACTOR), h: Math.round(h * LANDSCAPE_FACTOR) };
+    const PORTRAIT_WIDTH = 640;
 
     const patch = (rfb) => {
         const proto = Object.getPrototypeOf(rfb);
         rfb._requestRemoteResize = function () {
             const real = this._screenSize;
-            this._screenSize = () => target(real.call(this));
+            this._screenSize = () => {
+                const { w, h } = real.call(this);
+                if (w > h) return { w: this._fbWidth, h: this._fbHeight }; // landscape: keep
+                return { w: PORTRAIT_WIDTH, h: Math.round(PORTRAIT_WIDTH * h / w) };
+            };
             try {
                 proto._requestRemoteResize.call(this);
             } finally {
@@ -29,6 +28,17 @@
         };
         rfb._vrcxPatched = true;
     };
+
+    // Block zooming VRCX (pinch on phones, Ctrl+scroll / Ctrl +/- on desktop),
+    // so the layout stays as set up. Caught before noVNC passes them on.
+    const block = (ev) => { ev.stopImmediatePropagation(); ev.preventDefault(); };
+    for (const type of ["gesturestart", "gesturemove", "gestureend"]) {
+        window.addEventListener(type, (ev) => { if (ev.detail?.type === "pinch") block(ev); }, true);
+    }
+    window.addEventListener("wheel", (ev) => { if (ev.ctrlKey) block(ev); }, { capture: true, passive: false });
+    window.addEventListener("keydown", (ev) => {
+        if (ev.ctrlKey && ["=", "+", "-", "0"].includes(ev.key)) block(ev);
+    }, true);
 
     if (matchMedia("(pointer: coarse)").matches) {
         setInterval(() => {
