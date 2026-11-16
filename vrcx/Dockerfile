@@ -5,7 +5,7 @@ FROM ${BUILD_FROM}
 # plus fonts so friend names with emoji / CJK characters render.
 RUN add-pkg \
         ca-certificates curl jq \
-        libfuse2 procps \
+        libfuse2 procps gdb \
         libnss3 libgtk-3-0 libgbm1 libasound2 libxss1 libxtst6 libdrm2 \
         libxkbcommon0 libatk-bridge2.0-0 libcups2 libsecret-1-0 libnotify4 \
         libicu72 libssl3 xdg-utils \
