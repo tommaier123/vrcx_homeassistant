@@ -17,5 +17,7 @@ RUN set-cont-env APP_NAME "VRCX" && \
 
 COPY rootfs/ /
 COPY startapp.sh /startapp.sh
-RUN chmod +x /startapp.sh \
+# Plain value files must NOT be executable, option scripts must be.
+RUN chmod 644 /etc/cont-env.d/APP_NAME /etc/cont-env.d/KEEP_APP_RUNNING && \
+    chmod 755 /startapp.sh \
         /etc/cont-env.d/DISPLAY_WIDTH /etc/cont-env.d/DISPLAY_HEIGHT /etc/cont-env.d/DARK_MODE
