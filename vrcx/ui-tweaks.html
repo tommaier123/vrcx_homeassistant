@@ -5,8 +5,8 @@
 </style>
 <script type="module">
     // Phones: resize the remote screen to the phone's shape and scale it to
-    // fill the screen. Portrait is 640 px wide (2x zoom) and view-only with no
-    // cursor; landscape is 1.75x the phone's real size and fully usable.
+    // fill the screen, without a cursor. Portrait is 640 px wide (2x zoom) and
+    // view-only; landscape is 1.75x the phone's real size and fully usable.
     // Desktop browsers only get the zoom block below.
     import UI from "./app/ui.js?v=UNIQUE_VERSION";
 
@@ -56,13 +56,20 @@
                 // Resize first (view-only blocks resizing), then lock input.
                 rfb._requestRemoteResize();
                 const t = sizeFor(real);
-                if (rfb._fbWidth === t.w && rfb._fbHeight === t.h) rfb.viewOnly = true;
+                if (rfb._fbWidth === t.w && rfb._fbHeight === t.h) {
+                    // Park the pointer in the bottom-right corner (out of sight,
+                    // no hover effects), then lock input.
+                    const c = rfb._canvas;
+                    rfb._sendMouse(c.clientWidth, c.clientHeight, 0);
+                    rfb.viewOnly = true;
+                }
             } else if (!portrait && rfb.viewOnly) {
                 rfb.viewOnly = false;
                 rfb._requestRemoteResize();
             }
+            // No cursor on phones: you tap directly.
             const cursor = rfb._cursor?._canvas;
-            if (cursor) cursor.style.display = portrait ? "none" : "";
+            if (cursor && cursor.style.display !== "none") cursor.style.display = "none";
         }, 500);
     }
 </script>
