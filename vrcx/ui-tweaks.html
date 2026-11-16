@@ -4,22 +4,24 @@
     #noVNC_control_bar_anchor { display: none !important; }
 </style>
 <script type="module">
-    // Phones in portrait: resize the remote screen to the phone's shape at
-    // 640 px width (2x VRCX's desktop zoom) and scale it to fill the screen.
-    // In landscape the screen is left unchanged. Desktop browsers are untouched.
+    // Phones: resize the remote screen to the phone's shape and scale it to
+    // fill the screen. Portrait is 640 px wide (2x zoom) and view-only with no
+    // cursor; landscape is 1.75x the phone's real size and fully usable.
+    // Desktop browsers only get the zoom block below.
     import UI from "./app/ui.js?v=UNIQUE_VERSION";
 
     const PORTRAIT_WIDTH = 640;
+    const LANDSCAPE_FACTOR = 1.75;
+
+    const sizeFor = ({ w, h }) => w > h
+        ? { w: Math.round(w * LANDSCAPE_FACTOR), h: Math.round(h * LANDSCAPE_FACTOR) }
+        : { w: PORTRAIT_WIDTH, h: Math.round(PORTRAIT_WIDTH * h / w) };
 
     const patch = (rfb) => {
         const proto = Object.getPrototypeOf(rfb);
         rfb._requestRemoteResize = function () {
             const real = this._screenSize;
-            this._screenSize = () => {
-                const { w, h } = real.call(this);
-                if (w > h) return { w: this._fbWidth, h: this._fbHeight }; // landscape: keep
-                return { w: PORTRAIT_WIDTH, h: Math.round(PORTRAIT_WIDTH * h / w) };
-            };
+            this._screenSize = () => sizeFor(real.call(this));
             try {
                 proto._requestRemoteResize.call(this);
             } finally {
@@ -47,6 +49,20 @@
             if (!rfb._vrcxPatched) patch(rfb);
             if (!rfb.scaleViewport) rfb.scaleViewport = true;
             if (!rfb.resizeSession) rfb.resizeSession = true;
+
+            const real = rfb._screenSize();
+            const portrait = real.w <= real.h;
+            if (portrait && !rfb.viewOnly) {
+                // Resize first (view-only blocks resizing), then lock input.
+                rfb._requestRemoteResize();
+                const t = sizeFor(real);
+                if (rfb._fbWidth === t.w && rfb._fbHeight === t.h) rfb.viewOnly = true;
+            } else if (!portrait && rfb.viewOnly) {
+                rfb.viewOnly = false;
+                rfb._requestRemoteResize();
+            }
+            const cursor = rfb._cursor?._canvas;
+            if (cursor) cursor.style.display = portrait ? "none" : "";
         }, 500);
     }
 </script>
