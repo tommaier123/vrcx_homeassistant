@@ -1,0 +1,4 @@
+#!/bin/sh
+# Value comes from the add-on options in Home Assistant
+v=$(jq -r '.dark_mode' /data/options.json 2>/dev/null)
+case "$v" in true) echo 1 ;; false) echo 0 ;; *) exit 100 ;; esac

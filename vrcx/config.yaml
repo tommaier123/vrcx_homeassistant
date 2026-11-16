@@ -1,0 +1,25 @@
+name: VRCX
+version: "1.1.0"
+slug: vrcx
+description: VRCX (VRChat friend tracker) running in a Home Assistant sidebar tab
+url: https://github.com/vrcx-team/VRCX
+arch:
+  - amd64
+  - aarch64
+startup: application
+boot: auto
+init: false
+ingress: true
+ingress_port: 5800
+panel_icon: mdi:account-group
+panel_title: VRCX
+map:
+  - addon_config:rw
+options:
+  display_width: 1280
+  display_height: 800
+  dark_mode: true
+schema:
+  display_width: int(640,3840)
+  display_height: int(480,2160)
+  dark_mode: bool

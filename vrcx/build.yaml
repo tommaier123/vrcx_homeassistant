@@ -1,0 +1,3 @@
+build_from:
+  amd64: jlesage/baseimage-gui:debian-12-v4
+  aarch64: jlesage/baseimage-gui:debian-12-v4
