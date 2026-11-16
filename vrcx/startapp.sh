@@ -1,5 +1,5 @@
 #!/bin/sh
-# Starts VRCX from /config/VRCX.AppImage.
+# Starts VRCX from /config/VRCX.AppImage and keeps it running.
 # - First start: downloads the latest VRCX release for this CPU (x64/arm64).
 # - After that, VRCX's built-in updater (Settings > "Auto Download") checks
 #   hourly and replaces the AppImage. A watcher notices the new file and
@@ -7,8 +7,18 @@
 set -u
 
 APP=/config/VRCX.AppImage
+DATA=/config/VRCX
 PROC_RE='appimage_extracted_[^/]*/VRCX'
 CHECK_INTERVAL=300
+
+# Environment VRCX expects (data paths are derived from HOME / XDG_*).
+export HOME=/config
+export USER="${USER:-app}"
+export XDG_CONFIG_HOME=/config/xdg/config
+export XDG_CACHE_HOME=/config/xdg/cache
+export XDG_DATA_HOME=/config/xdg/data
+mkdir -p "$DATA" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
+cd /config
 
 # No FUSE inside the container: let the AppImage extract itself and run.
 export APPIMAGE_EXTRACT_AND_RUN=1
@@ -33,40 +43,43 @@ install_latest() {
 
 signature() { stat -c '%i:%Y:%s' "$APP" 2>/dev/null; }
 
-# Clean up leftovers from older add-on versions and previous runs.
-rm -rf /config/vrcx-app /tmp/appimage_extracted_*
+# Clean up leftovers from older add-on versions.
+rm -rf /config/vrcx-app
 
-if [ ! -s "$APP" ]; then
-    if ! install_latest; then
+while true; do
+    rm -rf /tmp/appimage_extracted_*
+
+    if [ ! -s "$APP" ] && ! install_latest; then
         echo "Download failed. Retrying in 60s."
         sleep 60
-        exit 1
+        continue
     fi
-fi
-chmod +x "$APP"
+    chmod +x "$APP"
 
-START_SIG=$(signature)
+    START_SIG=$(signature)
 
-"$APP" --no-sandbox --disable-gpu --disable-dev-shm-usage --no-install --no-desktop &
-APP_PID=$!
+    "$APP" --no-sandbox --disable-gpu --disable-dev-shm-usage \
+        --no-install --no-desktop "--config=$DATA" &
+    APP_PID=$!
 
-# Watch for an update downloaded by VRCX's own updater and restart onto it.
-(
-    while sleep "$CHECK_INTERVAL"; do
-        sig=$(signature)
-        if [ -n "$sig" ] && [ "$sig" != "$START_SIG" ] && [ -x "$APP" ]; then
-            echo "New VRCX version downloaded, restarting ..."
-            pkill -TERM -f "$PROC_RE"
-            break
-        fi
-    done
-) &
-WATCH_PID=$!
+    # Watch for an update downloaded by VRCX's own updater and restart onto it.
+    (
+        while sleep "$CHECK_INTERVAL"; do
+            sig=$(signature)
+            if [ -n "$sig" ] && [ "$sig" != "$START_SIG" ] && [ -x "$APP" ]; then
+                echo "New VRCX version downloaded, restarting ..."
+                pkill -TERM -f "$PROC_RE"
+                break
+            fi
+        done
+    ) &
+    WATCH_PID=$!
 
-wait "$APP_PID"
-# VRCX can relaunch itself (e.g. its own "Restart" button); stay alive while it runs.
-while pgrep -f "$PROC_RE" >/dev/null; do sleep 5; done
+    wait "$APP_PID"
+    # VRCX can relaunch itself (e.g. its own "Restart" button); wait while it runs.
+    while pgrep -f "$PROC_RE" >/dev/null; do sleep 5; done
+    kill "$WATCH_PID" 2>/dev/null
 
-kill "$WATCH_PID" 2>/dev/null
-# Exiting lets the container restart VRCX (KEEP_APP_RUNNING=1).
-exit 0
+    echo "VRCX exited, restarting in 5s ..."
+    sleep 5
+done
