@@ -8,7 +8,8 @@ set -u
 
 APP=/config/VRCX.AppImage
 DATA=/config/VRCX
-PROC_RE='appimage_extracted_[^/]*/VRCX'
+RUN_DIR=/tmp/vrcx
+PROC_RE='(/tmp/vrcx/squashfs-root|appimage_extracted_[^/]*)/VRCX'
 CHECK_INTERVAL=300
 
 # Environment VRCX expects (data paths are derived from HOME / XDG_*).
@@ -20,7 +21,10 @@ export XDG_DATA_HOME=/config/xdg/data
 mkdir -p "$DATA" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
 cd /config
 
-# No FUSE inside the container: let the AppImage extract itself and run.
+# No FUSE inside the container. We unpack the AppImage ourselves and run it
+# directly (gives real exit codes). APPIMAGE tells VRCX's updater which file
+# to replace; EXTRACT_AND_RUN covers VRCX relaunching itself via the AppImage.
+export APPIMAGE="$APP"
 export APPIMAGE_EXTRACT_AND_RUN=1
 export NO_CLEANUP=1
 
@@ -47,7 +51,7 @@ signature() { stat -c '%i:%Y:%s' "$APP" 2>/dev/null; }
 rm -rf /config/vrcx-app
 
 while true; do
-    rm -rf /tmp/appimage_extracted_*
+    rm -rf /tmp/appimage_extracted_* "$RUN_DIR"
 
     if [ ! -s "$APP" ] && ! install_latest; then
         echo "Download failed. Retrying in 60s."
@@ -61,7 +65,16 @@ while true; do
 
     START_SIG=$(signature)
 
-    "$APP" --no-sandbox --disable-gpu --disable-dev-shm-usage \
+    mkdir -p "$RUN_DIR"
+    if ! ( cd "$RUN_DIR" && "$APP" --appimage-extract >/dev/null ); then
+        echo "Unpacking VRCX failed, downloading it again."
+        rm -f "$APP"
+        sleep 5
+        continue
+    fi
+
+    echo "Memory: $(free -m | awk '/^Mem:/ {print $2 " MB total, " $7 " MB available"}')"
+    "$RUN_DIR/squashfs-root/AppRun" --no-sandbox --disable-gpu --disable-dev-shm-usage \
         --no-install --no-desktop "--config=$DATA" --enable-logging=stderr &
     APP_PID=$!
 
@@ -80,7 +93,11 @@ while true; do
 
     wait "$APP_PID"
     rc=$?
-    echo "VRCX process ended with exit code $rc"
+    if [ "$rc" -gt 128 ]; then
+        echo "VRCX was killed by signal SIG$(kill -l $((rc - 128)) 2>/dev/null) (exit code $rc)"
+    else
+        echo "VRCX process ended with exit code $rc"
+    fi
     # VRCX can relaunch itself (e.g. its own "Restart" button); wait while it runs.
     while pgrep -f "$PROC_RE" >/dev/null; do sleep 5; done
     kill "$WATCH_PID" 2>/dev/null
