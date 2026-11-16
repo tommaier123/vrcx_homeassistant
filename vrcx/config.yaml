@@ -1,5 +1,5 @@
 name: VRCX
-version: "1.4.2"
+version: "1.4.3"
 slug: vrcx
 description: VRCX (VRChat friend tracker) running in a Home Assistant sidebar tab
 url: https://github.com/vrcx-team/VRCX

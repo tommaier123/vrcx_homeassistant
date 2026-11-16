@@ -4,41 +4,39 @@
     #noVNC_control_bar_anchor { display: none !important; }
 </style>
 <script type="module">
-    // On phones: portrait shows the normal 1280x800 screen scaled down.
-    // Landscape resizes the screen to 1.5x the phone's real size (desktop
-    // browsers use 1x) and scales it to fill the whole screen.
+    // Phones: resize the remote screen to the phone's shape and scale it to
+    // fill the screen. Portrait keeps 1280 px width (full height), landscape
+    // uses 1.75x the phone's real size. Desktop browsers are left as they are.
     import UI from "./app/ui.js?v=UNIQUE_VERSION";
 
-    const PHONE_FACTOR = 1.5;
-    const PORTRAIT = { w: 1280, h: 800 };
-    const phone = matchMedia("(pointer: coarse)").matches;
+    const PORTRAIT_WIDTH = 1280;
+    const LANDSCAPE_FACTOR = 1.75;
+
+    const target = ({ w, h }) => w <= h
+        ? { w: PORTRAIT_WIDTH, h: Math.round(PORTRAIT_WIDTH * h / w) }
+        : { w: Math.round(w * LANDSCAPE_FACTOR), h: Math.round(h * LANDSCAPE_FACTOR) };
 
     const patch = (rfb) => {
         const proto = Object.getPrototypeOf(rfb);
         rfb._requestRemoteResize = function () {
             const real = this._screenSize;
-            this._screenSize = () => {
-                const r = real.call(this);
-                if (r.w <= r.h) return PORTRAIT;
-                return { w: Math.round(r.w * PHONE_FACTOR), h: Math.round(r.h * PHONE_FACTOR) };
-            };
+            this._screenSize = () => target(real.call(this));
             try {
                 proto._requestRemoteResize.call(this);
             } finally {
                 this._screenSize = real;
             }
         };
+        rfb._vrcxPatched = true;
     };
 
-    setInterval(() => {
-        const rfb = UI.rfb;
-        if (!rfb) return;
-        // Best image quality: the default JPEG level makes text blurry.
-        if (rfb.qualityLevel !== 9) rfb.qualityLevel = 9;
-        if (phone) {
-            if (!rfb._vrcxPatched) { patch(rfb); rfb._vrcxPatched = true; }
+    if (matchMedia("(pointer: coarse)").matches) {
+        setInterval(() => {
+            const rfb = UI.rfb;
+            if (!rfb) return;
+            if (!rfb._vrcxPatched) patch(rfb);
             if (!rfb.scaleViewport) rfb.scaleViewport = true;
             if (!rfb.resizeSession) rfb.resizeSession = true;
-        }
-    }, 500);
+        }, 500);
+    }
 </script>
