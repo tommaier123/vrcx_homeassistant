@@ -2,6 +2,8 @@
 <style>
     /* Hide the remote desktop side panel (clipboard, scaling, ...). */
     #noVNC_control_bar_anchor { display: none !important; }
+    /* Hide normal status popups like "Connected (encrypted)"; keep errors. */
+    #noVNC_status.noVNC_status_normal { display: none !important; }
 </style>
 <script type="module">
     // Phones: resize the remote screen to the phone's shape and scale it to
