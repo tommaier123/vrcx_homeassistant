@@ -1,5 +1,0 @@
-#!/bin/sh
-# Value comes from the add-on options in Home Assistant
-v=$(jq -r ".display_width // empty" /data/options.json 2>/dev/null)
-[ -n "$v" ] || exit 100
-echo "$v"

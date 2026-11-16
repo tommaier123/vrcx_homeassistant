@@ -1,0 +1,42 @@
+<!-- VRCX add-on tweaks, inserted into the noVNC page at build time. -->
+<style>
+    /* Hide the remote desktop side panel (clipboard, scaling, ...). */
+    #noVNC_control_bar_anchor { display: none !important; }
+</style>
+<script type="module">
+    // On phones: portrait shows the normal 1280x800 screen scaled down.
+    // Landscape resizes the screen to the phone's shape (800 px high) and
+    // scales it to fill the whole width.
+    import UI from "./app/ui.js?v=UNIQUE_VERSION";
+
+    const HEIGHT = 800;
+    const PORTRAIT = { w: 1280, h: 800 };
+
+    if (matchMedia("(pointer: coarse)").matches) {
+        const patch = (rfb) => {
+            const proto = Object.getPrototypeOf(rfb);
+            rfb._requestRemoteResize = function () {
+                const real = this._screenSize;
+                this._screenSize = () => {
+                    const r = real.call(this);
+                    if (r.w <= r.h) return PORTRAIT;
+                    return { w: Math.round(r.w * HEIGHT / r.h), h: HEIGHT };
+                };
+                try {
+                    proto._requestRemoteResize.call(this);
+                } finally {
+                    this._screenSize = real;
+                }
+            };
+            rfb._vrcxPatched = true;
+        };
+
+        setInterval(() => {
+            const rfb = UI.rfb;
+            if (!rfb) return;
+            if (!rfb._vrcxPatched) patch(rfb);
+            if (!rfb.scaleViewport) rfb.scaleViewport = true;
+            if (!rfb.resizeSession) rfb.resizeSession = true;
+        }, 500);
+    }
+</script>
