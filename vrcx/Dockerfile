@@ -17,4 +17,5 @@ RUN set-cont-env APP_NAME "VRCX" && \
 
 COPY rootfs/ /
 COPY startapp.sh /startapp.sh
-RUN chmod +x /startapp.sh /etc/cont-env.d/*
+RUN chmod +x /startapp.sh \
+        /etc/cont-env.d/DISPLAY_WIDTH /etc/cont-env.d/DISPLAY_HEIGHT /etc/cont-env.d/DARK_MODE
